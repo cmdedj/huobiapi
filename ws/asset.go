@@ -191,7 +191,6 @@ func (asset *Asset) Subscribe(subData SubData, listener Listener) bool {
 	asset.subscribedTopic[subData.GetTopic()] = subData
 
 	if isNew {
-		log.Info("第一次订阅")
 		jsonData := <-asset.requestResultCb[subData.GetCid()]
 
 		if jsonData != nil {

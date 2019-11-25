@@ -74,3 +74,25 @@ func NewAccountsSubData(model string) SubData {
 		Model: model,
 	}
 }
+
+type OrdersSubData struct {
+	Op    string `json:"op"`
+	Cid   string `json:"cid"`
+	Topic string `json:"topic"`
+}
+
+func (o *OrdersSubData) GetCid() string {
+	return o.Cid
+}
+
+func (o *OrdersSubData) GetTopic() string {
+	return o.Topic
+}
+
+func NewOrdersSubData() SubData {
+	return &OrdersSubData{
+		Op:    "sub",
+		Cid:   bson.NewObjectId().Hex(),
+		Topic: "orders.*.update",
+	}
+}

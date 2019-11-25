@@ -17,13 +17,21 @@ func TestAsset_Auth(t *testing.T) {
 	ok := asset.Auth()
 	log.Info("auth is ", ok)
 
-	subok := asset.Subscribe(
+	accountsSubOk := asset.Subscribe(
 		NewAccountsSubData("0"),
 		func(json *simplejson.Json) {
 			log.Debug(json)
 		},
 	)
-	log.Info("sub is ", subok)
+	log.Info("accounts sub is ", accountsSubOk)
+
+	ordersSubOk := asset.Subscribe(
+		NewOrdersSubData(),
+		func(json *simplejson.Json) {
+			log.Debug(json)
+		},
+	)
+	log.Info("orders sub is ", ordersSubOk)
 
 	asset.Loop()
 
