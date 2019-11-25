@@ -150,7 +150,7 @@ func (m *Market) handleMessageLoop() {
 			m.listenerMutex.Unlock()
 			if ok {
 
-				listener(ch, json)
+				listener(json)
 			}
 			return
 		}

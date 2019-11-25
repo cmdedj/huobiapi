@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/bitly/go-simplejson"
-	"math"
+	"github.com/globalsign/mgo/bson"
+	log "github.com/sirupsen/logrus"
 	"sync"
 	"time"
-	log "github.com/sirupsen/logrus"
 )
 
 // Endpoint 行情的Websocket入口
@@ -18,33 +18,26 @@ type Asset struct {
 
 	listeners         map[string]Listener
 	listenerMutex     sync.Mutex
-	subscribedTopic   map[string]bool
-	subscribeResultCb map[string]jsonChan
+	subscribedTopic   map[string]SubData
 	requestResultCb   map[string]jsonChan
 
 	// 掉线后是否自动重连，如果用户主动执行Close()则不自动重连
 	autoReconnect bool
 
-	// 上次接收到的ping时间戳
-	lastPing int64
-
-	// 主动发送心跳的时间间隔，默认5秒
-	HeartbeatInterval time.Duration
-	// 接收消息超时时间，默认10秒
-	ReceiveTimeout time.Duration
+	AccessKeyId     string
+	AccessKeySecret string
 }
 
 // NewMarket 创建Market实例
-func NewAsset() (asset *Asset, err error) {
+func NewAsset(accessKeyId, accessKeySecret string) (asset *Asset, err error) {
 	asset = &Asset{
-		HeartbeatInterval: 5 * time.Second,
-		ReceiveTimeout:    10 * time.Second,
 		ws:                nil,
 		autoReconnect:     true,
 		listeners:         make(map[string]Listener),
-		subscribeResultCb: make(map[string]jsonChan),
 		requestResultCb:   make(map[string]jsonChan),
-		subscribedTopic:   make(map[string]bool),
+		subscribedTopic:   make(map[string]SubData),
+		AccessKeyId:       accessKeyId,
+		AccessKeySecret:   accessKeySecret,
 	}
 
 	if err := asset.connect(); err != nil {
@@ -61,10 +54,7 @@ func (asset *Asset) connect() error {
 		return err
 	}
 	asset.ws = ws
-	asset.lastPing = getUinxMillisecond()
-
 	asset.handleMessageLoop()
-	asset.keepAlive()
 
 	return nil
 }
@@ -89,19 +79,21 @@ func (asset *Asset) reconnect() error {
 
 	for topic, listener := range listeners {
 		delete(asset.subscribedTopic, topic)
-		asset.Subscribe(topic, listener)
+		asset.Subscribe(asset.subscribedTopic[topic], listener)
 	}
 	return nil
 }
 
 // sendMessage 发送消息
-func (asset *Asset) sendMessage(data interface{}) error {
-	b, err := json.Marshal(data)
+func (asset *Asset) SendMessage(message interface{}) error {
+	b, err := json.Marshal(message)
 	if err != nil {
-		return nil
+		return err
 	}
 
-	log.Info("send message: ", string(b))
+	log.WithFields(log.Fields{
+		"message": fmt.Sprintf("%+v", message),
+	}).Info("send message")
 	asset.ws.Send(b)
 	return nil
 }
@@ -110,100 +102,58 @@ func (asset *Asset) sendMessage(data interface{}) error {
 func (asset *Asset) handleMessageLoop() {
 	asset.ws.Listen(func(buf []byte) {
 		msg, err := unGzipData(buf)
-
 		if err != nil {
-
-			return
-		}
-		json, err := simplejson.NewJson(msg)
-		if err != nil {
-
+			log.WithFields(log.Fields{
+				"err": fmt.Sprintf("%+v", err),
+			}).Error("un gzip error")
 			return
 		}
 
-		log.Info(json)
+		jsonData, err := simplejson.NewJson(msg)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"err": fmt.Sprintf("%+v", err),
+			}).Error("json decode")
+			return
+		}
 
-		op := json.Get("op").MustString()
+		log.WithFields(log.Fields{
+			"data": fmt.Sprintf("%+v", jsonData),
+		}).Info("response data")
+
+		op := jsonData.Get("op").MustString()
 
 		// 处理ping
-		if op == "ping"{
-			ts := json.Get("ts").MustInt64()
+		if op == "ping" {
+			ts := jsonData.Get("ts").MustInt64()
 			err := asset.handlePing(pingData{
 				Op: "ping",
 				Ts: ts,
 			})
 			if err != nil {
-				log.Error(err)
+				log.WithFields(log.Fields{
+					"err": fmt.Sprintf("%+v", err),
+				}).Error("handle ping")
 			}
 
-		}
-
-
-		// 处理pong消息
-		if pong := json.Get("pong").MustInt64(); pong > 0 {
-			asset.lastPing = pong
 			return
-		}
+		} else if op == "notify" {
 
-		// 处理订阅消息
-		if ch := json.Get("ch").MustString(); ch != "" {
+			topic := jsonData.Get("topic").MustString()
 			asset.listenerMutex.Lock()
-			listener, ok := asset.listeners[ch]
+			listener, ok := asset.listeners[topic]
 			asset.listenerMutex.Unlock()
 			if ok {
-
-				listener(ch, json)
+				listener(jsonData)
 			}
 			return
-		}
-
-		// 处理订阅成功通知
-		if subbed := json.Get("subbed").MustString(); subbed != "" {
-			c, ok := asset.subscribeResultCb[subbed]
+		} else {
+			cid, _ := jsonData.Get("cid").String()
+			c, ok := asset.requestResultCb[cid]
 			if ok {
-				c <- json
+				c <- jsonData
 			}
 			return
-		}
-
-		// 请求行情结果
-		if rep, id := json.Get("rep").MustString(), json.Get("id").MustString(); rep != "" && id != "" {
-			c, ok := asset.requestResultCb[id]
-			if ok {
-				c <- json
-			}
-			return
-		}
-
-		// 处理错误消息
-		if status := json.Get("status").MustString(); status == "error" {
-			// 判断是否为订阅失败
-			id := json.Get("id").MustString()
-			c, ok := asset.subscribeResultCb[id]
-			if ok {
-				c <- json
-			}
-			return
-		}
-	})
-}
-
-// keepAlive 保持活跃
-func (asset *Asset) keepAlive() {
-	asset.ws.KeepAlive(asset.HeartbeatInterval, func() {
-		var t = getUinxMillisecond()
-		// asset.sendMessage(pingData{Ping: t})
-
-		// 检查上次ping时间，如果超过20秒无响应，重新连接
-		tr := time.Duration(math.Abs(float64(t - asset.lastPing)))
-		if tr >= asset.HeartbeatInterval*2 {
-
-			if asset.autoReconnect {
-				err := asset.reconnect()
-				if err != nil {
-
-				}
-			}
 		}
 	})
 }
@@ -211,12 +161,11 @@ func (asset *Asset) keepAlive() {
 // handlePing 处理Ping
 func (asset *Asset) handlePing(ping pingData) (err error) {
 
-	asset.lastPing = ping.Ts
 	var pong = pongData{
 		Op: "pong",
 		Ts: ping.Ts,
 	}
-	err = asset.sendMessage(pong)
+	err = asset.SendMessage(pong)
 	if err != nil {
 		return err
 	}
@@ -224,33 +173,39 @@ func (asset *Asset) handlePing(ping pingData) (err error) {
 }
 
 // Subscribe 订阅
-func (asset *Asset) Subscribe(topic string, listener Listener) error {
-
+func (asset *Asset) Subscribe(subData SubData, listener Listener) bool {
 
 	var isNew = false
 
 	// 如果未曾发送过订阅指令，则发送，并等待订阅操作结果，否则直接返回
-	if _, ok := asset.subscribedTopic[topic]; !ok {
-		asset.subscribeResultCb[topic] = make(jsonChan)
-		asset.sendMessage(subData{ID: topic, Sub: topic})
+	if _, ok := asset.subscribedTopic[subData.GetTopic()]; !ok {
+		asset.requestResultCb[subData.GetCid()] = make(jsonChan)
+		asset.SendMessage(subData)
+		
 		isNew = true
-	} else {
-
 	}
 
 	asset.listenerMutex.Lock()
-	asset.listeners[topic] = listener
+	asset.listeners[subData.GetTopic()] = listener
 	asset.listenerMutex.Unlock()
-	asset.subscribedTopic[topic] = true
+	asset.subscribedTopic[subData.GetTopic()] = subData
 
 	if isNew {
-		var json = <-asset.subscribeResultCb[topic]
-		// 判断订阅结果，如果出错则返回出错信息
-		if msg, err := json.Get("err-msg").String(); err == nil {
-			return fmt.Errorf(msg)
+		log.Info("第一次订阅")
+		jsonData := <-asset.requestResultCb[subData.GetCid()]
+
+		if jsonData != nil {
+			errCode := jsonData.Get("err-code").MustInt()
+			if errCode == 0 {
+				return true
+			} else {
+				return false
+			}
 		}
 	}
-	return nil
+
+	return true
+
 }
 
 // Unsubscribe 取消订阅
@@ -263,22 +218,18 @@ func (asset *Asset) Unsubscribe(topic string) {
 }
 
 // Request 请求行情信息
-func (asset *Asset) Request(req string) (*simplejson.Json, error) {
-	var id = getRandomString(10)
-	asset.requestResultCb[id] = make(jsonChan)
+func (asset *Asset) Request(cid string, data interface{}) (*simplejson.Json) {
 
-	if err := asset.sendMessage(reqData{Req: req, ID: id}); err != nil {
-		return nil, err
+	asset.requestResultCb[cid] = make(jsonChan)
+
+	if err := asset.SendMessage(data); err != nil {
+		return nil
 	}
-	var json = <-asset.requestResultCb[id]
+	var jsonData = <-asset.requestResultCb[cid]
 
-	delete(asset.requestResultCb, id)
+	delete(asset.requestResultCb, cid)
 
-	// 判断是否出错
-	if msg := json.Get("err-msg").MustString(); msg != "" {
-		return json, fmt.Errorf(msg)
-	}
-	return json, nil
+	return jsonData
 }
 
 // Loop 进入循环
@@ -320,25 +271,35 @@ func (asset *Asset) Close() error {
 	return nil
 }
 
-
-func (asset * Asset) Auth(accessKeyId, accessKeySecret string) error {
+func (asset *Asset) Auth() bool {
 	params := make(map[string]string)
 
-	params["AccessKeyId"] = accessKeyId
+	params["AccessKeyId"] = asset.AccessKeyId
 	params["SignatureMethod"] = "HmacSHA256"
 	params["SignatureVersion"] = "2"
 	params["Timestamp"] = time.Now().Format("2006-01-02T15:04:05")
 
+	cid := bson.NewObjectId().Hex()
 	authData := AuthData{
-		Op:              "auth",
-		Cid:              "xxxxxxxxxxxxx",
+		Op:               "auth",
+		Cid:              cid,
 		AccessKeyId:      params["AccessKeyId"],
 		SignatureMethod:  params["SignatureMethod"],
 		SignatureVersion: params["SignatureVersion"],
 		Timestamp:        params["Timestamp"],
-		Signature:        GenSignature(params, accessKeySecret),
+		Signature:        GenSignature(params, asset.AccessKeySecret),
 	}
 
-	err := asset.sendMessage(authData)
-	return err
+	jsonData := asset.Request(cid, authData)
+
+	if jsonData != nil {
+		errCode := jsonData.Get("err-code").MustInt()
+		if errCode == 0 {
+			return true
+		} else {
+			return false
+		}
+	}
+
+	return false
 }
