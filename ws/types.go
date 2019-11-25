@@ -5,24 +5,14 @@ import (
 	"github.com/globalsign/mgo/bson"
 )
 
-type pongData struct {
-	Op string `json:"op"`
-	Ts int64  `json:"ts"`
-}
-
 type pingData struct {
 	Op string `json:"op"`
 	Ts int64  `json:"ts"`
 }
 
-type subData struct {
-	Sub string `json:"sub"`
-	ID  string `json:"id"`
-}
-
-type reqData struct {
-	Req string `json:"req"`
-	ID  string `json:"id"`
+type pongData struct {
+	Op string `json:"op"`
+	Ts int64  `json:"ts"`
 }
 
 type AuthData struct {
@@ -81,12 +71,12 @@ type OrdersSubData struct {
 	Topic string `json:"topic"`
 }
 
-func (o *OrdersSubData) GetCid() string {
-	return o.Cid
+func (osd *OrdersSubData) GetCid() string {
+	return osd.Cid
 }
 
-func (o *OrdersSubData) GetTopic() string {
-	return o.Topic
+func (osd *OrdersSubData) GetTopic() string {
+	return osd.Topic
 }
 
 func NewOrdersSubData() SubData {
