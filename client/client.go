@@ -1,48 +1,64 @@
 package client
 
 import (
-	"net/url"
-
 	"github.com/bitly/go-simplejson"
+	"github.com/levigross/grequests"
+	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 type Client struct {
-	Sign       *Sign
-	host       string
-	pathPrefix string
-	scheme     string
+	AccessKeyId      string
+	AccessKeySecret  string
 }
-
-/// 行情API
-const MarketEndpoint = "https://api.huobi.pro/market"
-
-/// 交易API
-const TradeEndpoint = "https://api.huobi.pro/v1"
 
 /// 全局API
-const Endpoint = "https://api.huobi.pro"
+const Endpoint = "https://api-aws.huobi.pro"
 
 /// 创建新客户端
-func NewClient(endpoint, accessKeyId, accessKeySecret string) (*Client, error) {
-	urlInfo, err := url.Parse(endpoint)
-	if err != nil {
-		return nil, err
-	}
+func NewClient(accessKeyId, accessKeySecret string) *Client {
 
 	client := &Client{
-		Sign:       NewSign(accessKeyId, accessKeySecret),
-		host:       urlInfo.Host,
-		pathPrefix: urlInfo.Path,
-		scheme:     urlInfo.Scheme,
+		AccessKeyId:     accessKeyId,
+		AccessKeySecret: accessKeySecret,
 	}
-	if client.pathPrefix == "/" {
-		client.pathPrefix = ""
-	}
-
-	return client, nil
+	return client
 }
 
+type ParamData = map[string]string
+
 /// 发送请求
-func (c *Client) Request(method, path string, data ParamData) (*simplejson.Json, error) {
-	return SendRequest(c.Sign, method, c.scheme, c.host, c.pathPrefix+path, data)
+func (c *Client) Request(method string, path string, data ParamData) (*simplejson.Json, error) {
+	if data == nil {
+		data = make(ParamData)
+	}
+
+	data["AccessKeyId"] = c.AccessKeyId
+	data["SignatureMethod"] = "HmacSHA256"
+	data["SignatureVersion"] = "2"
+	data["Timestamp"] = time.Now().UTC().Format("2006-01-02T15:04:05")
+
+	data["Signature"] = GenSignature(method, path, data, c.AccessKeySecret)
+
+	ro := &grequests.RequestOptions{
+		Params: data,
+	}
+
+	resp, err := grequests.Get(Endpoint, ro)
+	if err != nil {
+		log.Error(err)
+	}
+
+	log.Info(resp.String())
+
+	return nil, nil
+
+}
+
+func (c *Client) GetRequest(path string, data ParamData) (*simplejson.Json, error) {
+	return c.Request("GET", path, data)
+}
+
+func (c *Client) GetAccountId() (*simplejson.Json, error) {
+	return c.GetRequest("/v1/account/accounts", nil)
 }

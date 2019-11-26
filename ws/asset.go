@@ -276,7 +276,7 @@ func (asset *Asset) Auth() bool {
 	params["AccessKeyId"] = asset.AccessKeyId
 	params["SignatureMethod"] = "HmacSHA256"
 	params["SignatureVersion"] = "2"
-	params["Timestamp"] = time.Now().Format("2006-01-02T15:04:05")
+	params["Timestamp"] = time.Now().UTC().Format("2006-01-02T15:04:05")
 
 	cid := bson.NewObjectId().Hex()
 	authData := AuthData{
