@@ -44,6 +44,8 @@ func NewAsset(accessKeyId, accessKeySecret string) (asset *Asset, err error) {
 		return nil, err
 	}
 
+	go asset.Loop()
+
 	return asset, nil
 }
 
@@ -109,6 +111,8 @@ func (asset *Asset) handleMessageLoop() {
 			return
 		}
 
+		log.Info("response json ", string(msg))
+
 		jsonData, err := simplejson.NewJson(msg)
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -116,10 +120,6 @@ func (asset *Asset) handleMessageLoop() {
 			}).Error("json decode")
 			return
 		}
-
-		log.WithFields(log.Fields{
-			"data": fmt.Sprintf("%+v", jsonData),
-		}).Info("response data")
 
 		op := jsonData.Get("op").MustString()
 

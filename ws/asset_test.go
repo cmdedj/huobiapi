@@ -4,6 +4,7 @@ import (
 	"github.com/bitly/go-simplejson"
 	log "github.com/sirupsen/logrus"
 	"testing"
+	"time"
 )
 
 func init() {
@@ -22,9 +23,9 @@ func TestAsset_Auth(t *testing.T) {
 	log.Info("auth is ", ok)
 
 	accountsSubOk := asset.Subscribe(
-		NewAccountsSubData("0"),
+		NewAccountsSubData("1"),
 		func(json *simplejson.Json) {
-			log.Debug(json)
+			_ = json
 		},
 	)
 	log.Info("accounts sub is ", accountsSubOk)
@@ -32,11 +33,10 @@ func TestAsset_Auth(t *testing.T) {
 	ordersSubOk := asset.Subscribe(
 		NewOrdersSubData(),
 		func(json *simplejson.Json) {
-			log.Debug(json)
+			_ = json
 		},
 	)
 	log.Info("orders sub is ", ordersSubOk)
 
-	asset.Loop()
-
+	time.Sleep(1 * time.Hour)
 }
