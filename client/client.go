@@ -200,8 +200,6 @@ func (c *Client) GetOrders(symbol, states, orderTypes, startDate, endDate, from,
 		param["size"] = size
 	}
 
-	log.Debug(param)
-
 	result, err := c.GetRequest("/v1/order/orders", param)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -230,5 +228,23 @@ func (c *Client) GetOrders(symbol, states, orderTypes, startDate, endDate, from,
 	}
 
 	return orders, err
+
+}
+
+func (c *Client) GetLatestSymbolPrice(symbol string) (float64, error) {
+	param := make(ParamData)
+	param["symbol"] = strings.ToLower(symbol)
+
+	result, err := c.GetRequest("/market/trade", param)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetMarketTrade request error")
+		return 0, err
+	}
+
+	price := result.Get("tick").Get("data").GetIndex(0).Get("price").MustFloat64()
+
+	return price, err
 
 }

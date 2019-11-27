@@ -59,3 +59,14 @@ func TestClient_GetOrders(t *testing.T) {
 		log.Error(err)
 	}
 }
+
+func TestClient_GetLatestSymbolPrice(t *testing.T) {
+	price, err := client.GetLatestSymbolPrice("ethusdt")
+	log.WithFields(log.Fields{
+		"price": fmt.Sprintf("%+v", price),
+	}).Info("price")
+
+	if err != nil {
+		log.Error(err)
+	}
+}
