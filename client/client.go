@@ -26,8 +26,6 @@ func NewClient(accessKeyId, accessKeySecret string) *Client {
 	return client
 }
 
-type ParamData = map[string]string
-
 /// 发送请求
 func (c *Client) Request(method string, path string, param ParamData) (*simplejson.Json, error) {
 	if param == nil {
@@ -51,7 +49,7 @@ func (c *Client) Request(method string, path string, param ParamData) (*simplejs
 		return nil, err
 	}
 
-	log.Info("response ", resp.String())
+	log.Info("response json ", resp.String())
 
 	jsonData, err := simplejson.NewJson(resp.Bytes())
 	if err != nil {
@@ -66,7 +64,7 @@ func (c *Client) GetRequest(path string, param ParamData) (*simplejson.Json, err
 	return c.Request("GET", path, param)
 }
 
-func (c *Client) GetAccountId() (string, error) {
+func (c *Client) GetAccountId(accountType string) (string, error) {
 	result, err := c.GetRequest("/v1/account/accounts", nil)
 	if err != nil {
 		log.Error(err)
@@ -78,7 +76,7 @@ func (c *Client) GetAccountId() (string, error) {
 		data := v.(map[string]interface{})
 		accountType := data["type"].(string)
 
-		if accountType == "spot" {
+		if accountType == accountType {
 			accountId = data["id"].(json.Number).String()
 		}
 

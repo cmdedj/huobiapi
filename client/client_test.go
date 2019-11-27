@@ -19,12 +19,12 @@ func init() {
 }
 
 func TestClient_GetAccountId(t *testing.T) {
-	aid, _ := client.GetAccountId()
+	aid, _ := client.GetAccountId(AccountTypeSpot)
 	fmt.Println(aid)
 }
 
 func TestClient_GetBalance(t *testing.T) {
-	aid, _ := client.GetAccountId()
+	aid, _ := client.GetAccountId(AccountTypeSpot)
 	re, err := client.GetBalance(aid)
 	fmt.Println(re, err)
 }

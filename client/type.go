@@ -5,3 +5,5 @@ type Balance struct {
 	Type     string `json:"type"`
 	Balance  string `json:"balance"`
 }
+
+type ParamData = map[string]string
