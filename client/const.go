@@ -1,3 +1,3 @@
 package client
 
-const AccountTypeSpot  = "spot"
+const AccountTypeSpot = "spot"

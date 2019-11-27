@@ -15,7 +15,6 @@ func init() {
 	log.SetLevel(log.DebugLevel)
 }
 
-
 func TestAsset_Auth(t *testing.T) {
 
 	asset, _ := NewAsset("a4382164-ed2htwf5tf-6d55e15e-701e5", "e7de9097-0adeb442-66b6f2d7-76752")

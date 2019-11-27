@@ -19,11 +19,11 @@ const Endpoint = "https://api-aws.huobi.pro"
 /// 创建新客户端
 func NewClient(accessKeyId, accessKeySecret string) *Client {
 
-	client := &Client{
+	return &Client{
 		AccessKeyId:     accessKeyId,
 		AccessKeySecret: accessKeySecret,
 	}
-	return client
+
 }
 
 /// 发送请求

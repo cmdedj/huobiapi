@@ -16,10 +16,10 @@ var assetEndpoint = "wss://api-aws.huobi.pro/ws/v1"
 type Asset struct {
 	ws *SafeWebSocket
 
-	listeners         map[string]Listener
-	listenerMutex     sync.Mutex
-	subscribedTopic   map[string]SubData
-	requestResultCb   map[string]jsonChan
+	listeners       map[string]Listener
+	listenerMutex   sync.Mutex
+	subscribedTopic map[string]SubData
+	requestResultCb map[string]jsonChan
 
 	// 掉线后是否自动重连，如果用户主动执行Close()则不自动重连
 	autoReconnect bool
@@ -31,13 +31,13 @@ type Asset struct {
 // NewMarket 创建Market实例
 func NewAsset(accessKeyId, accessKeySecret string) (asset *Asset, err error) {
 	asset = &Asset{
-		ws:                nil,
-		autoReconnect:     true,
-		listeners:         make(map[string]Listener),
-		requestResultCb:   make(map[string]jsonChan),
-		subscribedTopic:   make(map[string]SubData),
-		AccessKeyId:       accessKeyId,
-		AccessKeySecret:   accessKeySecret,
+		ws:              nil,
+		autoReconnect:   true,
+		listeners:       make(map[string]Listener),
+		requestResultCb: make(map[string]jsonChan),
+		subscribedTopic: make(map[string]SubData),
+		AccessKeyId:     accessKeyId,
+		AccessKeySecret: accessKeySecret,
 	}
 
 	if err := asset.connect(); err != nil {
@@ -181,7 +181,7 @@ func (asset *Asset) Subscribe(subData SubData, listener Listener) bool {
 	if _, ok := asset.subscribedTopic[subData.GetTopic()]; !ok {
 		asset.requestResultCb[subData.GetCid()] = make(jsonChan)
 		asset.SendMessage(subData)
-		
+
 		isNew = true
 	}
 
