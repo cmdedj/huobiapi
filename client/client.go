@@ -176,7 +176,7 @@ func (c *Client) GetDepositAndWithdraw(dwType, currency, from, size, direct stri
 	return daws, err
 }
 
-func (c *Client) GetOrders(symbol, states, orderTypes, startDate, endDate, from, direct, size string) ([]*Order, error){
+func (c *Client) GetOrders(symbol, states, orderTypes, startDate, endDate, from, direct, size string) ([]*Order, error) {
 	param := make(ParamData)
 	param["symbol"] = strings.ToLower(symbol)
 	param["states"] = states
@@ -239,11 +239,18 @@ func (c *Client) GetLatestSymbolPrice(symbol string) (float64, error) {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"err": fmt.Sprintf("%+v", err),
-		}).Error("GetMarketTrade request error")
+		}).Error("GetLatestSymbolPrice request error")
 		return 0, err
 	}
 
-	price := result.Get("tick").Get("data").GetIndex(0).Get("price").MustFloat64()
+	price, err := result.Get("tick").Get("data").GetIndex(0).Get("price").Float64()
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetLatestSymbolPrice json get error")
+		return 0, err
+	}
 
 	return price, err
 
