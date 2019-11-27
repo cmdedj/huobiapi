@@ -1,7 +1,6 @@
 package client
 
 import (
-	"fmt"
 	log "github.com/sirupsen/logrus"
 	"testing"
 )
@@ -19,12 +18,18 @@ func init() {
 }
 
 func TestClient_GetAccountId(t *testing.T) {
-	aid, _ := client.GetAccountId(AccountTypeSpot)
-	fmt.Println(aid)
+	aid, err := client.GetAccountId(AccountTypeSpot)
+	log.Println("aid", aid)
+	if err != nil {
+		log.Error(err)
+	}
 }
 
 func TestClient_GetBalance(t *testing.T) {
 	aid, _ := client.GetAccountId(AccountTypeSpot)
-	re, err := client.GetBalance(aid)
-	fmt.Println(re, err)
+	balance, err := client.GetBalance(aid)
+	log.Println("balance", balance)
+	if err != nil {
+		log.Error(err)
+	}
 }

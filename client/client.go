@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/bitly/go-simplejson"
 	"github.com/levigross/grequests"
 	log "github.com/sirupsen/logrus"
@@ -36,7 +37,6 @@ func (c *Client) Request(method string, path string, param ParamData) (*simplejs
 	param["SignatureMethod"] = "HmacSHA256"
 	param["SignatureVersion"] = "2"
 	param["Timestamp"] = time.Now().UTC().Format("2006-01-02T15:04:05")
-
 	param["Signature"] = GenSignature(method, path, param, c.AccessKeySecret)
 
 	ro := &grequests.RequestOptions{
@@ -45,7 +45,9 @@ func (c *Client) Request(method string, path string, param ParamData) (*simplejs
 
 	resp, err := grequests.Get(Endpoint+path, ro)
 	if err != nil {
-		log.Error(err)
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("request error")
 		return nil, err
 	}
 
@@ -53,7 +55,10 @@ func (c *Client) Request(method string, path string, param ParamData) (*simplejs
 
 	jsonData, err := simplejson.NewJson(resp.Bytes())
 	if err != nil {
-		log.Error(err)
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("json decode error")
+		return nil, err
 	}
 
 	return jsonData, err
@@ -67,19 +72,23 @@ func (c *Client) GetRequest(path string, param ParamData) (*simplejson.Json, err
 func (c *Client) GetAccountId(accountType string) (string, error) {
 	result, err := c.GetRequest("/v1/account/accounts", nil)
 	if err != nil {
-		log.Error(err)
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetAccountId request error")
+		return "", err
 	}
 
 	var accountId string
 
 	for _, v := range result.Get("data").MustArray() {
 		data := v.(map[string]interface{})
-		accountType := data["type"].(string)
+		atType := data["type"].(string)
 
-		if accountType == accountType {
+		if atType == accountType {
 			accountId = data["id"].(json.Number).String()
 		}
 
+		return accountId, nil
 	}
 
 	return accountId, err
@@ -89,20 +98,29 @@ func (c *Client) GetBalance(accountId string) ([]*Balance, error) {
 	result, err := c.GetRequest("/v1/account/accounts/"+accountId+"/balance", nil)
 
 	if err != nil {
-		log.Error(err)
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetBalance request error")
+		return nil, err
 	}
 
 	list := result.Get("data").Get("list")
 	listBytes, err := list.Encode()
 
 	if err != nil {
-		log.Error(err)
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetBalance json encode error")
+		return nil, err
 	}
 
 	balances := make([]*Balance, 0)
 	err = json.Unmarshal(listBytes, &balances)
 	if err != nil {
-		log.Error(err)
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetBalance json unmarshal error")
+		return nil, err
 	}
 
 	return balances, err
