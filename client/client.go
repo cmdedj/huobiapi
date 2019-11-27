@@ -6,6 +6,7 @@ import (
 	"github.com/bitly/go-simplejson"
 	"github.com/levigross/grequests"
 	log "github.com/sirupsen/logrus"
+	"strings"
 	"time"
 )
 
@@ -124,5 +125,110 @@ func (c *Client) GetBalance(accountId string) ([]*Balance, error) {
 	}
 
 	return balances, err
+
+}
+
+func (c *Client) GetDepositAndWithdraw(dwType, currency, from, size, direct string) ([]*DepositAndWithdraw, error) {
+
+	param := make(ParamData)
+	param["type"] = dwType
+
+	if currency != "" {
+		param["currency"] = currency
+	}
+	if from != "" {
+		param["from"] = from
+	}
+	if size != "" {
+		param["size"] = size
+	}
+	if direct != "" {
+		param["direct"] = direct
+	}
+
+	result, err := c.GetRequest("/v1/query/deposit-withdraw", param)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetDepositAndWithdraw request error")
+		return nil, err
+	}
+
+	list := result.Get("data")
+	listBytes, err := list.Encode()
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetDepositAndWithdraw json encode error")
+		return nil, err
+	}
+
+	daws := make([]*DepositAndWithdraw, 0)
+	err = json.Unmarshal(listBytes, &daws)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetDepositAndWithdraw json unmarshal error")
+		return nil, err
+	}
+
+	return daws, err
+}
+
+func (c *Client) GetOrders(symbol, states, orderTypes, startDate, endDate, from, direct, size string) ([]*Order, error){
+	param := make(ParamData)
+	param["symbol"] = strings.ToLower(symbol)
+	param["states"] = states
+
+	if orderTypes != "" {
+		param["types"] = orderTypes
+	}
+	if startDate != "" {
+		param["start-date"] = startDate
+	}
+	if endDate != "" {
+		param["end-date"] = endDate
+	}
+	if from != "" {
+		param["from"] = from
+	}
+	if direct != "" {
+		param["direct"] = direct
+	}
+	if size != "" {
+		param["size"] = size
+	}
+
+	log.Debug(param)
+
+	result, err := c.GetRequest("/v1/order/orders", param)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetOrders request error")
+		return nil, err
+	}
+
+	list := result.Get("data")
+	listBytes, err := list.Encode()
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetOrders json encode error")
+		return nil, err
+	}
+
+	orders := make([]*Order, 0)
+	err = json.Unmarshal(listBytes, &orders)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetOrders json unmarshal error")
+		return nil, err
+	}
+
+	return orders, err
 
 }

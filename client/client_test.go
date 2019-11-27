@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"testing"
 )
@@ -29,6 +30,31 @@ func TestClient_GetBalance(t *testing.T) {
 	aid, _ := client.GetAccountId(AccountTypeSpot)
 	balance, err := client.GetBalance(aid)
 	log.Println("balance", balance)
+	if err != nil {
+		log.Error(err)
+	}
+}
+
+func TestClient_GetDepositAndWithdraw(t *testing.T) {
+	daws, err := client.GetDepositAndWithdraw("withdraw", "", "", "500", "next")
+
+	log.WithFields(log.Fields{
+		"daw": fmt.Sprintf("%+v", daws),
+	}).Info("daw")
+
+	if err != nil {
+		log.Error(err)
+	}
+
+}
+
+func TestClient_GetOrders(t *testing.T) {
+	orders, err := client.GetOrders("BTCUSDT", "filled,partial-filled", "", "", "", "", "next", "100")
+
+	log.WithFields(log.Fields{
+		"orders": fmt.Sprintf("%+v", *orders[0]),
+	}).Info("orders")
+
 	if err != nil {
 		log.Error(err)
 	}
