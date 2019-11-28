@@ -2,88 +2,14 @@
 
 火币网 API Go 客户端
 
-## 安装
-
-本模块使用 [godep](https://github.com/golang/dep) 作为包管理工具
-
-```bash
-dep ensure -v -add github.com/leizongmin/huobiapi
-```
-
-## Websocket 版行情数据订阅查询
-
-说明：返回的结果数据使用 [go-simplejson](https://github.com/bitly/go-simplejson) 存储
-
-详细代码参考 [examples](https://github.com/leizongmin/huobiapi/tree/master/examples) 目录
-
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/leizongmin/huobiapi"
-)
-
-func main() {
-    // 创建客户端实例
-    market, err := huobiapi.NewMarket()
-    if err != nil {
-        panic(err)
-    }
-    // 订阅主题
-    market.Subscribe("market.eosusdt.trade.detail", func(topic string, json *huobiapi.JSON) {
-        // 收到数据更新时回调
-        fmt.Println(topic, json)
-    })
-    // 请求数据
-    json, err := market.Request("market.eosusdt.detail")
-    if err != nil {
-        panic(err)
-    } else {
-        fmt.Println(json)
-    }
-    // 进入阻塞等待，这样不会导致进程退出
-    market.Loop()
-}
-```
-
-## RESTful 版行情和交易查询
-
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/leizongmin/huobiapi"
-)
-
-func main() {
-    // 创建客户端实例
-    client, err := huobiapi.NewClient("key id", "key secret")
-    if err != nil {
-        panic(err)
-    }
-    // 发送请求
-    ret, err := client.Request("GET", "/market/history/trade", huobiapi.ParamsData{
-        "symbol": "eosusdt",
-        "size": "10",
-    })
-    data, err := ret.Get("data").Array()
-    if err != nil {
-        panic(err)
-    }
-    for _, v := range data {
-        fmt.Println(v)
-    }
-}
-```
+因为leizongmin/huobiapi大佬写的库已经很久没有更新和火币现有API已经不兼容了，所以更改了此库（基本是全写了）。主要功能是restful和ws查看个人资产相关的功能。依赖用的go mod，功能详情见test文件。
 
 ## License
 
 ```text
 MIT License
 
-Copyright (c) 2018 Zongmin Lei <leizongmin@gmail.com>
+Copyright (c) 2018 cmdedj <cmdedjz@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

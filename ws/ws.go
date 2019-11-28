@@ -3,9 +3,15 @@ package ws
 import (
 	"fmt"
 	"time"
-
+	log "github.com/sirupsen/logrus"
 	"github.com/gorilla/websocket"
 )
+
+func init() {
+	log.SetFormatter(&log.TextFormatter{
+		ForceColors: true,
+	})
+}
 
 var SafeWebSocketDestroyError = fmt.Errorf("connection destroy by user")
 
@@ -14,17 +20,13 @@ var SafeWebSocketDestroyError = fmt.Errorf("connection destroy by user")
 type SafeWebSocket struct {
 	ws               *websocket.Conn
 	listener         SafeWebSocketMessageListener
-	aliveHandler     SafeWebSocketAliveHandler
-	aliveInterval    time.Duration
 	sendQueue        chan []byte
 	lastError        error
 	runningTaskSend  bool
 	runningTaskRead  bool
-	runningTaskAlive bool
 }
 
 type SafeWebSocketMessageListener = func(b []byte)
-type SafeWebSocketAliveHandler = func()
 
 // NewSafeWebSocket 创建安全的WebSocket实例并连接
 func NewSafeWebSocket(endpoint string) (*SafeWebSocket, error) {
@@ -32,7 +34,7 @@ func NewSafeWebSocket(endpoint string) (*SafeWebSocket, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &SafeWebSocket{ws: ws, sendQueue: make(chan []byte, 1000), aliveInterval: time.Second * 60}
+	s := &SafeWebSocket{ws: ws, sendQueue: make(chan []byte, 1000)}
 
 	go func() {
 		s.runningTaskSend = true
@@ -59,17 +61,6 @@ func NewSafeWebSocket(endpoint string) (*SafeWebSocket, error) {
 		s.runningTaskRead = false
 	}()
 
-	go func() {
-		s.runningTaskAlive = true
-		for s.lastError == nil {
-			if s.aliveHandler != nil {
-				s.aliveHandler()
-			}
-			time.Sleep(s.aliveInterval)
-		}
-		s.runningTaskAlive = false
-	}()
-
 	return s, nil
 }
 
@@ -83,16 +74,11 @@ func (s *SafeWebSocket) Send(b []byte) {
 	s.sendQueue <- b
 }
 
-// KeepAlive 设置alive周期及函数
-func (s *SafeWebSocket) KeepAlive(v time.Duration, h SafeWebSocketAliveHandler) {
-	s.aliveInterval = v
-	s.aliveHandler = h
-}
 
 // Destroy 销毁
 func (s *SafeWebSocket) Destroy() (err error) {
 	s.lastError = SafeWebSocketDestroyError
-	for !s.runningTaskRead && !s.runningTaskSend && !s.runningTaskAlive {
+	for !s.runningTaskRead && !s.runningTaskSend {
 		time.Sleep(time.Millisecond * 100)
 	}
 	if s.ws != nil {
@@ -100,7 +86,6 @@ func (s *SafeWebSocket) Destroy() (err error) {
 		s.ws = nil
 	}
 	s.listener = nil
-	s.aliveHandler = nil
 	s.sendQueue = nil
 	return err
 }

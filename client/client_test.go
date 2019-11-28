@@ -9,10 +9,7 @@ import (
 var client *Client
 
 func init() {
-	log.SetFormatter(&log.TextFormatter{
-		ForceColors: true,
-	})
-	// log.SetReportCaller(true)
+	log.SetReportCaller(false)
 	log.SetLevel(log.DebugLevel)
 
 	client = NewClient("a4382164-ed2htwf5tf-6d55e15e-701e5", "e7de9097-0adeb442-66b6f2d7-76752")
@@ -36,11 +33,11 @@ func TestClient_GetBalance(t *testing.T) {
 }
 
 func TestClient_GetDepositAndWithdraw(t *testing.T) {
-	daws, err := client.GetDepositAndWithdraw("withdraw", "", "", "500", "next")
+	daws, err := client.GetDepositAndWithdraw(Deposit, "", "", "500", DirectDesc)
 
 	log.WithFields(log.Fields{
-		"daw": fmt.Sprintf("%+v", daws),
-	}).Info("daw")
+		"daws": fmt.Sprintf("%+v", daws),
+	}).Info("daws")
 
 	if err != nil {
 		log.Error(err)
@@ -49,7 +46,7 @@ func TestClient_GetDepositAndWithdraw(t *testing.T) {
 }
 
 func TestClient_GetOrders(t *testing.T) {
-	orders, err := client.GetOrders("BTCUSDT", "filled,partial-filled", "", "", "", "", "next", "100")
+	orders, err := client.GetOrders("BTCUSDT", "filled,partial-filled", "", "", "", "", DirectDesc, "100")
 
 	log.WithFields(log.Fields{
 		"orders": fmt.Sprintf("%+v", *orders[0]),
@@ -61,7 +58,8 @@ func TestClient_GetOrders(t *testing.T) {
 }
 
 func TestClient_GetLatestSymbolPrice(t *testing.T) {
-	price, err := client.GetLatestSymbolPrice("ethusdt")
+	price, err := client.GetLatestSymbolPrice("btcusdt")
+
 	log.WithFields(log.Fields{
 		"price": fmt.Sprintf("%+v", price),
 	}).Info("price")

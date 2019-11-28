@@ -23,6 +23,7 @@ type Asset struct {
 
 	// 掉线后是否自动重连，如果用户主动执行Close()则不自动重连
 	autoReconnect bool
+	autoReconnectCount int
 
 	AccessKeyId     string
 	AccessKeySecret string
@@ -33,6 +34,7 @@ func NewAsset(accessKeyId, accessKeySecret string) (asset *Asset, err error) {
 	asset = &Asset{
 		ws:              nil,
 		autoReconnect:   true,
+		autoReconnectCount: 3,
 		listeners:       make(map[string]Listener),
 		requestResultCb: make(map[string]jsonChan),
 		subscribedTopic: make(map[string]SubData),
@@ -58,7 +60,7 @@ func (asset *Asset) connect() error {
 	asset.ws = ws
 	asset.handleMessageLoop()
 
-	return nil
+	return err
 }
 
 // reconnect 重新连接
@@ -66,7 +68,8 @@ func (asset *Asset) reconnect() error {
 
 	time.Sleep(time.Second)
 
-	if err := asset.connect(); err != nil {
+	err := asset.connect()
+	if err != nil {
 
 		return err
 	}
@@ -83,7 +86,7 @@ func (asset *Asset) reconnect() error {
 		delete(asset.subscribedTopic, topic)
 		asset.Subscribe(asset.subscribedTopic[topic], listener)
 	}
-	return nil
+	return err
 }
 
 // sendMessage 发送消息
@@ -175,23 +178,16 @@ func (asset *Asset) handlePing(ping pingData) (err error) {
 // Subscribe 订阅
 func (asset *Asset) Subscribe(subData SubData, listener Listener) bool {
 
-	var isNew = false
-
 	// 如果未曾发送过订阅指令，则发送，并等待订阅操作结果，否则直接返回
 	if _, ok := asset.subscribedTopic[subData.GetTopic()]; !ok {
-		asset.requestResultCb[subData.GetCid()] = make(jsonChan)
-		asset.SendMessage(subData)
 
-		isNew = true
-	}
-
-	asset.listenerMutex.Lock()
-	asset.listeners[subData.GetTopic()] = listener
-	asset.listenerMutex.Unlock()
-	asset.subscribedTopic[subData.GetTopic()] = subData
-
-	if isNew {
-		jsonData := <-asset.requestResultCb[subData.GetCid()]
+		jsonData, err := asset.Request(subData.GetCid(), subData)
+		if err != nil{
+			log.WithFields(log.Fields{
+				"err": fmt.Sprintf("%+v", err),
+			}).Info("Subscribe send message error")
+			return false
+		}
 
 		if jsonData != nil {
 			errCode := jsonData.Get("err-code").MustInt()
@@ -201,39 +197,67 @@ func (asset *Asset) Subscribe(subData SubData, listener Listener) bool {
 				return false
 			}
 		}
+
 	}
+
+	asset.listenerMutex.Lock()
+	asset.listeners[subData.GetTopic()] = listener
+	asset.listenerMutex.Unlock()
+	asset.subscribedTopic[subData.GetTopic()] = subData
 
 	return true
 
 }
 
 // Unsubscribe 取消订阅
-func (asset *Asset) Unsubscribe(topic string) {
+func (asset *Asset) UnSubscribe(topic string) bool {
+
+	cid := bson.NewObjectId().Hex()
+	jsonData, err := asset.Request(cid, UnSubData{
+		Unsub: topic,
+		Id:    cid,
+	})
+	if err != nil{
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Info("UnSubscribe send message error")
+		return false
+	}
+
+	if jsonData != nil {
+		errCode := jsonData.Get("err-code").MustInt()
+		if errCode == 0 {
+			return true
+		} else {
+			return false
+		}
+	}
 
 	asset.listenerMutex.Lock()
-	// 火币网没有提供取消订阅的接口，只能删除监听器
 	delete(asset.listeners, topic)
 	asset.listenerMutex.Unlock()
+
+	return true
 }
 
-// Request 请求行情信息
-func (asset *Asset) Request(cid string, data interface{}) (*simplejson.Json) {
+func (asset *Asset) Request(cid string, data interface{}) (*simplejson.Json, error) {
 
 	asset.requestResultCb[cid] = make(jsonChan)
 
-	if err := asset.SendMessage(data); err != nil {
-		return nil
+	err := asset.SendMessage(data)
+	if err != nil {
+		return nil, err
 	}
+
 	var jsonData = <-asset.requestResultCb[cid]
 
 	delete(asset.requestResultCb, cid)
 
-	return jsonData
+	return jsonData, err
 }
 
 // Loop 进入循环
 func (asset *Asset) Loop() {
-
 	for {
 		err := asset.ws.Loop()
 		if err != nil {
@@ -241,7 +265,14 @@ func (asset *Asset) Loop() {
 			if err == SafeWebSocketDestroyError {
 				break
 			} else if asset.autoReconnect {
-				asset.reconnect()
+				err = asset.reconnect()
+				if err != nil{
+					asset.autoReconnectCount -= 1
+				}
+				if asset.autoReconnectCount < 0 {
+					break
+				}
+				time.Sleep(3 * time.Second)
 			} else {
 				break
 			}
@@ -289,7 +320,14 @@ func (asset *Asset) Auth() bool {
 		Signature:        GenSignature(params, asset.AccessKeySecret),
 	}
 
-	jsonData := asset.Request(cid, authData)
+	jsonData, err := asset.Request(cid, authData)
+
+	if err != nil{
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Info("Auth request error")
+		return false
+	}
 
 	if jsonData != nil {
 		errCode := jsonData.Get("err-code").MustInt()

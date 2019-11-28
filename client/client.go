@@ -11,6 +11,12 @@ import (
 	"time"
 )
 
+func init() {
+	log.SetFormatter(&log.TextFormatter{
+		ForceColors: true,
+	})
+}
+
 type Client struct {
 	AccessKeyId     string
 	AccessKeySecret string
