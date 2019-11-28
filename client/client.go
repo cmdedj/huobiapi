@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/bitly/go-simplejson"
 	"github.com/levigross/grequests"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"strings"
 	"time"
@@ -241,6 +242,19 @@ func (c *Client) GetLatestSymbolPrice(symbol string) (float64, error) {
 			"err": fmt.Sprintf("%+v", err),
 		}).Error("GetLatestSymbolPrice request error")
 		return 0, err
+	}
+
+	status := result.Get("status").MustString()
+	if status == "error" {
+		errCode := result.Get("err-code").MustString()
+		errMsg := result.Get("err-msg").MustString()
+		log.WithFields(log.Fields{
+			"err-code": fmt.Sprintf("%+v", errCode),
+			"err-msg": fmt.Sprintf("%+v", errMsg),
+		}).Error("GetLatestSymbolPrice status error")
+
+		return 0, errors.Errorf("err-code: %s, err-msg: %s", errCode, errMsg)
+
 	}
 
 	price, err := result.Get("tick").Get("data").GetIndex(0).Get("price").Float64()

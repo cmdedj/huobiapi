@@ -46,7 +46,7 @@ func NewAsset(accessKeyId, accessKeySecret string) (asset *Asset, err error) {
 
 	go asset.Loop()
 
-	return asset, nil
+	return asset, err
 }
 
 // connect 连接
