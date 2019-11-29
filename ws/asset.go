@@ -2,6 +2,7 @@ package ws
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/bitly/go-simplejson"
 	"github.com/globalsign/mgo/bson"
@@ -74,6 +75,15 @@ func (asset *Asset) reconnect() error {
 		return err
 	}
 
+	ok := asset.Auth()
+	if !ok {
+		err := errors.New("reconnect auth error")
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("reconnect auth error")
+		return err
+	}
+
 	// 重新订阅
 	asset.listenerMutex.Lock()
 	var listeners = make(map[string]Listener)
@@ -83,8 +93,9 @@ func (asset *Asset) reconnect() error {
 	asset.listenerMutex.Unlock()
 
 	for topic, listener := range listeners {
+		subData := asset.subscribedTopic[topic]
 		delete(asset.subscribedTopic, topic)
-		asset.Subscribe(asset.subscribedTopic[topic], listener)
+		asset.Subscribe(subData, listener)
 	}
 	return err
 }
@@ -120,7 +131,7 @@ func (asset *Asset) handleMessageLoop() {
 		if err != nil {
 			log.WithFields(log.Fields{
 				"err": fmt.Sprintf("%+v", err),
-			}).Error("json decode")
+			}).Error("json decode error")
 			return
 		}
 
@@ -136,7 +147,7 @@ func (asset *Asset) handleMessageLoop() {
 			if err != nil {
 				log.WithFields(log.Fields{
 					"err": fmt.Sprintf("%+v", err),
-				}).Error("handle ping")
+				}).Error("handle ping error")
 			}
 
 			return
@@ -151,7 +162,7 @@ func (asset *Asset) handleMessageLoop() {
 			}
 			return
 		} else {
-			cid, _ := jsonData.Get("cid").String()
+			cid := jsonData.Get("cid").MustString()
 			c, ok := asset.requestResultCb[cid]
 			if ok {
 				c <- jsonData
@@ -169,10 +180,7 @@ func (asset *Asset) handlePing(ping pingData) (err error) {
 		Ts: ping.Ts,
 	}
 	err = asset.SendMessage(pong)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // Subscribe 订阅
@@ -185,7 +193,7 @@ func (asset *Asset) Subscribe(subData SubData, listener Listener) bool {
 		if err != nil{
 			log.WithFields(log.Fields{
 				"err": fmt.Sprintf("%+v", err),
-			}).Info("Subscribe send message error")
+			}).Info("Subscribe Request error")
 			return false
 		}
 
@@ -214,13 +222,14 @@ func (asset *Asset) UnSubscribe(topic string) bool {
 
 	cid := bson.NewObjectId().Hex()
 	jsonData, err := asset.Request(cid, UnSubData{
-		Unsub: topic,
-		Id:    cid,
+		Op:    "unsub",
+		Topic: topic,
+		Cid:   cid,
 	})
 	if err != nil{
 		log.WithFields(log.Fields{
 			"err": fmt.Sprintf("%+v", err),
-		}).Info("UnSubscribe send message error")
+		}).Info("UnSubscribe Request error")
 		return false
 	}
 
@@ -265,13 +274,18 @@ func (asset *Asset) Loop() {
 			if err == SafeWebSocketDestroyError {
 				break
 			} else if asset.autoReconnect {
+
+				if asset.autoReconnectCount <= 0 {
+					log.Error("reconnect over count break")
+					break
+				}
+
 				err = asset.reconnect()
 				if err != nil{
 					asset.autoReconnectCount -= 1
+					log.Error("reconnect fail")
 				}
-				if asset.autoReconnectCount < 0 {
-					break
-				}
+
 				time.Sleep(3 * time.Second)
 			} else {
 				break
@@ -282,23 +296,24 @@ func (asset *Asset) Loop() {
 }
 
 // ReConnect 重新连接
-func (asset *Asset) ReConnect() (err error) {
+func (asset *Asset) ReConnect() (error) {
 
 	asset.autoReconnect = true
-	if err = asset.ws.Destroy(); err != nil {
+	err := asset.ws.Destroy()
+	if err != nil {
 		return err
 	}
-	return asset.reconnect()
+	err = asset.reconnect()
+	return err
 }
 
 // Close 关闭连接
 func (asset *Asset) Close() error {
 
 	asset.autoReconnect = false
-	if err := asset.ws.Destroy(); err != nil {
-		return err
-	}
-	return nil
+	err := asset.ws.Destroy()
+
+	return err
 }
 
 func (asset *Asset) Auth() bool {
@@ -325,7 +340,7 @@ func (asset *Asset) Auth() bool {
 	if err != nil{
 		log.WithFields(log.Fields{
 			"err": fmt.Sprintf("%+v", err),
-		}).Info("Auth request error")
+		}).Info("Auth Request error")
 		return false
 	}
 

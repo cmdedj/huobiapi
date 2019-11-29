@@ -38,5 +38,10 @@ func TestAsset_Auth(t *testing.T) {
 	)
 	log.Info("orders sub is ", ordersSubOk)
 
+	time.Sleep(time.Second)
+
+	ordersUnSubOk := asset.UnSubscribe("orders.*.update")
+	log.Info("orders unsub is ", ordersUnSubOk)
+
 	time.Sleep(1 * time.Hour)
 }

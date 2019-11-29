@@ -2,9 +2,9 @@ package ws
 
 import (
 	"fmt"
-	"time"
-	log "github.com/sirupsen/logrus"
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 func init() {
@@ -18,12 +18,12 @@ var SafeWebSocketDestroyError = fmt.Errorf("connection destroy by user")
 // SafeWebSocket 安全的WebSocket封装
 // 保证读取和发送操作是并发安全的，支持自定义保持alive函数
 type SafeWebSocket struct {
-	ws               *websocket.Conn
-	listener         SafeWebSocketMessageListener
-	sendQueue        chan []byte
-	lastError        error
-	runningTaskSend  bool
-	runningTaskRead  bool
+	ws              *websocket.Conn
+	listener        SafeWebSocketMessageListener
+	sendQueue       chan []byte
+	lastError       error
+	runningTaskSend bool
+	runningTaskRead bool
 }
 
 type SafeWebSocketMessageListener = func(b []byte)
@@ -40,7 +40,8 @@ func NewSafeWebSocket(endpoint string) (*SafeWebSocket, error) {
 		s.runningTaskSend = true
 		for s.lastError == nil {
 			b := <-s.sendQueue
-			if err := s.ws.WriteMessage(websocket.TextMessage, b); err != nil {
+			err := s.ws.WriteMessage(websocket.TextMessage, b)
+			if err != nil {
 				s.lastError = err
 				break
 			}
@@ -73,7 +74,6 @@ func (s *SafeWebSocket) Listen(h SafeWebSocketMessageListener) {
 func (s *SafeWebSocket) Send(b []byte) {
 	s.sendQueue <- b
 }
-
 
 // Destroy 销毁
 func (s *SafeWebSocket) Destroy() (err error) {

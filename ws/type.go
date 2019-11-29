@@ -42,8 +42,9 @@ type SubData interface {
 }
 
 type UnSubData struct {
-	Unsub string `json:"unsub"`
-	Id    string `json:"id"`
+	Op    string `json:"op"`
+	Topic string `json:"topic"`
+	Cid   string `json:"cid"`
 }
 
 type AccountsSubData struct {
