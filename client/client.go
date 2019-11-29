@@ -256,7 +256,7 @@ func (c *Client) GetLatestSymbolPrice(symbol string) (float64, error) {
 		errMsg := result.Get("err-msg").MustString()
 		log.WithFields(log.Fields{
 			"err-code": fmt.Sprintf("%+v", errCode),
-			"err-msg": fmt.Sprintf("%+v", errMsg),
+			"err-msg":  fmt.Sprintf("%+v", errMsg),
 		}).Error("GetLatestSymbolPrice status error")
 
 		return 0, errors.Errorf("err-code: %s, err-msg: %s", errCode, errMsg)
@@ -274,4 +274,35 @@ func (c *Client) GetLatestSymbolPrice(symbol string) (float64, error) {
 
 	return price, err
 
+}
+
+func (c *Client) GetSymbols() ([]*Symbol, error) {
+	result, err := c.GetRequest("/v1/common/symbols", nil)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetSymbols request error")
+		return nil, err
+	}
+
+	list := result.Get("data")
+	listBytes, err := list.Encode()
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetSymbols json encode error")
+		return nil, err
+	}
+
+	symbols := make([]*Symbol, 0)
+	err = json.Unmarshal(listBytes, &symbols)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": fmt.Sprintf("%+v", err),
+		}).Error("GetSymbols json unmarshal error")
+		return nil, err
+	}
+
+	return symbols, err
 }

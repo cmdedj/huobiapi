@@ -49,7 +49,7 @@ func TestClient_GetOrders(t *testing.T) {
 	orders, err := client.GetOrders("BTCUSDT", "filled,partial-filled", "", "", "", "", DirectDesc, "100")
 
 	log.WithFields(log.Fields{
-		"orders": fmt.Sprintf("%+v", *orders[0]),
+		"orders": fmt.Sprintf("%+v", orders),
 	}).Info("orders")
 
 	if err != nil {
@@ -63,6 +63,17 @@ func TestClient_GetLatestSymbolPrice(t *testing.T) {
 	log.WithFields(log.Fields{
 		"price": fmt.Sprintf("%+v", price),
 	}).Info("price")
+
+	if err != nil {
+		log.Error(err)
+	}
+}
+
+func TestClient_GetSymbols(t *testing.T) {
+	symbols, err := client.GetSymbols()
+	log.WithFields(log.Fields{
+		"symbols": fmt.Sprintf("%+v", symbols),
+	}).Info("symbols")
 
 	if err != nil {
 		log.Error(err)

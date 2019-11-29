@@ -40,3 +40,18 @@ type Order struct {
 	State           string `json:"state"`
 	CanceledAt      int64  `json:"canceled-at"`
 }
+
+type Symbol struct {
+	BaseCurrency    string  `json:"base-currency"`
+	QuoteCurrency   string  `json:"quote-currency"`
+	PricePrecision  int64   `json:"price-precision"`
+	AmountPrecision int64   `json:"amount-precision"`
+	SymbolPartition string  `json:"symbol-partition"`
+	Symbol          string  `json:"symbol"`
+	State           string  `json:"state"`
+	ValuePrecision  int64   `json:"value-precision"`
+	MinOrderAmt     float64 `json:"min-order-amt"`
+	MaxOrderAmt     float64 `json:"max-order-amt"`
+	MinOrderValue   float64 `json:"min-order-value"`
+	LeverageRatio   float64 `json:"leverage-ratio"`
+}
