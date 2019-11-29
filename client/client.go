@@ -12,9 +12,7 @@ import (
 )
 
 func init() {
-	log.SetFormatter(&log.TextFormatter{
-		ForceColors: true,
-	})
+	log.SetFormatter(&log.JSONFormatter{})
 }
 
 type Client struct {

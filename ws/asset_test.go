@@ -8,6 +8,10 @@ import (
 )
 
 func init() {
+	log.SetFormatter(&log.TextFormatter{
+		ForceColors: true,
+	})
+
 	log.SetReportCaller(false)
 	log.SetLevel(log.DebugLevel)
 }
@@ -25,6 +29,7 @@ func TestAsset_Auth(t *testing.T) {
 	accountsSubOk := asset.Subscribe(
 		NewAccountsSubData(BalanceAll),
 		func(json *simplejson.Json) {
+			log.Info("get balance all")
 			_ = json
 		},
 	)
@@ -33,15 +38,16 @@ func TestAsset_Auth(t *testing.T) {
 	ordersSubOk := asset.Subscribe(
 		NewOrdersSubData(),
 		func(json *simplejson.Json) {
+			log.Info("get orders")
 			_ = json
 		},
 	)
 	log.Info("orders sub is ", ordersSubOk)
 
-	time.Sleep(time.Second)
+	//time.Sleep(time.Second)
 
-	ordersUnSubOk := asset.UnSubscribe("orders.*.update")
-	log.Info("orders unsub is ", ordersUnSubOk)
+	//ordersUnSubOk := asset.UnSubscribe("orders.*.update")
+	//log.Info("orders unsub is ", ordersUnSubOk)
 
 	time.Sleep(1 * time.Hour)
 }

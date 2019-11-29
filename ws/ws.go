@@ -8,9 +8,7 @@ import (
 )
 
 func init() {
-	log.SetFormatter(&log.TextFormatter{
-		ForceColors: true,
-	})
+	log.SetFormatter(&log.JSONFormatter{})
 }
 
 var SafeWebSocketDestroyError = fmt.Errorf("connection destroy by user")

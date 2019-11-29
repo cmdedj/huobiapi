@@ -200,6 +200,12 @@ func (asset *Asset) Subscribe(subData SubData, listener Listener) bool {
 		if jsonData != nil {
 			errCode := jsonData.Get("err-code").MustInt()
 			if errCode == 0 {
+
+				asset.listenerMutex.Lock()
+				asset.listeners[subData.GetTopic()] = listener
+				asset.listenerMutex.Unlock()
+				asset.subscribedTopic[subData.GetTopic()] = subData
+
 				return true
 			} else {
 				return false
@@ -208,12 +214,7 @@ func (asset *Asset) Subscribe(subData SubData, listener Listener) bool {
 
 	}
 
-	asset.listenerMutex.Lock()
-	asset.listeners[subData.GetTopic()] = listener
-	asset.listenerMutex.Unlock()
-	asset.subscribedTopic[subData.GetTopic()] = subData
-
-	return true
+	return false
 
 }
 

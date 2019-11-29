@@ -9,6 +9,10 @@ import (
 var client *Client
 
 func init() {
+	log.SetFormatter(&log.TextFormatter{
+		ForceColors: true,
+	})
+
 	log.SetReportCaller(false)
 	log.SetLevel(log.DebugLevel)
 
